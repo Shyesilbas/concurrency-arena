@@ -4,6 +4,7 @@ import com.serhat.concurrencyarena.dto.BookingRequest;
 import com.serhat.concurrencyarena.dto.BookingResponse;
 import com.serhat.concurrencyarena.dto.response.ApiResponse;
 import com.serhat.concurrencyarena.service.NaiveBookingService;
+import com.serhat.concurrencyarena.service.OptimisticBookingService;
 import com.serhat.concurrencyarena.service.PessimisticBookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ public class BookingController {
 
     private final NaiveBookingService naiveBookingService;
     private final PessimisticBookingService pessimisticBookingService;
+    private final OptimisticBookingService optimisticBookingService;
 
     @PostMapping("/naive")
     public ResponseEntity<ApiResponse<BookingResponse>> bookNaive(@RequestBody BookingRequest request) {
@@ -27,6 +29,12 @@ public class BookingController {
     public ResponseEntity<ApiResponse<BookingResponse>> bookPessimistic(@RequestBody BookingRequest request) {
         BookingResponse response = pessimisticBookingService.bookTicket(request);
         return ResponseEntity.ok(ApiResponse.ok(response, "Pessimistic Ticket booked successfully."));
+    }
+
+    @PostMapping("/optimistic")
+    public ResponseEntity<ApiResponse<BookingResponse>> bookOptimistic(@RequestBody BookingRequest request) {
+        BookingResponse response = optimisticBookingService.bookTicket(request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Optimistic Ticket booked successfully."));
     }
 
 }
