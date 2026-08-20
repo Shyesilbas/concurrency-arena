@@ -29,7 +29,7 @@ public class Concert {
     @Column(name = "available_seats", nullable = false)
     private Integer availableSeats;
 
-    @Version
+    //@Version commented because naive test
     private Long version;
 
     @Column(name = "created_at", insertable = false, updatable = false)
