@@ -1,34 +1,35 @@
 import React, { useState } from 'react';
-import { Play, PlayCircle, RotateCcw } from 'lucide-react';
+import { Play, PlayCircle } from 'lucide-react';
+import { api } from '../api/client';
 
 const STRATEGIES = [
   {
     id: 'naive',
-    endpoint: '/api/v1/bookings/naive',
+    endpoint: '/bookings/naive',
     title: '01. Naive (Korumasız)',
     desc: 'Kilit yok. Lost Update ve Overselling yaşanır.'
   },
   {
     id: 'pessimistic',
-    endpoint: '/api/v1/bookings/pessimistic',
+    endpoint: '/bookings/pessimistic',
     title: '02. Pessimistic Lock',
     desc: 'SELECT FOR UPDATE satır kilidi. Tutarlı ama yavaş.'
   },
   {
     id: 'optimistic',
-    endpoint: '/api/v1/bookings/optimistic',
+    endpoint: '/bookings/optimistic',
     title: '03. Optimistic Lock',
     desc: '@Version + 50x Jitter Retry. Lock-free çakışma yakalama.'
   },
   {
     id: 'redis',
-    endpoint: '/api/v1/bookings/redis',
+    endpoint: '/bookings/redis',
     title: '04. Redis Lua Scripting',
     desc: 'Atomik bellek içi stok düşümü. Sıfır DB kilidi.'
   },
   {
     id: 'kafka',
-    endpoint: '/api/v1/bookings/kafka',
+    endpoint: '/bookings/kafka',
     title: '05. Kafka Event-Driven',
     desc: '202 Accepted. Redis stok düşümü + asenkron kuyruk.'
   }
@@ -43,7 +44,6 @@ export default function LoadTestRunner({ concertId, user, onTestComplete, onBatc
 
   // Single test execution helper
   const executeSingleTest = async (stratObj, stock, vus) => {
-    // Reset stock to target capacity
     if (onResetConcertStock) {
       await onResetConcertStock(stock);
       await new Promise(r => setTimeout(r, 250));
@@ -71,15 +71,11 @@ export default function LoadTestRunner({ concertId, user, onTestComplete, onBatc
         let trackingId = null;
 
         try {
-          const res = await fetch(`http://localhost:8080${stratObj.endpoint}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              concertId: concertId || 1,
-              userId: baseUserId,
-              seatCount: 1,
-              idempotencyKey: `sim-${Date.now()}-${userIndex}-${Math.random().toString(36).substring(7)}`
-            })
+          const res = await api.bookTicket(stratObj.endpoint, {
+            concertId: concertId || 1,
+            userId: baseUserId,
+            seatCount: 1,
+            idempotencyKey: `sim-${Date.now()}-${userIndex}-${Math.random().toString(36).substring(7)}`
           });
 
           const reqEnd = performance.now();
@@ -88,15 +84,13 @@ export default function LoadTestRunner({ concertId, user, onTestComplete, onBatc
 
           httpCode = res.status;
           statusCodes[res.status] = (statusCodes[res.status] || 0) + 1;
-
-          const json = await res.json().catch(() => null);
-          responseMessage = json && json.message ? json.message : (res.ok ? 'Başarılı' : 'Kapasite Dolu');
+          responseMessage = res.message;
 
           if (res.ok || res.status === 202) {
             successCount++;
             status = 'ALINDI';
-            if (json && json.data && json.data.trackingId) {
-              trackingId = json.data.trackingId;
+            if (res.data && res.data.trackingId) {
+              trackingId = res.data.trackingId;
             }
           } else {
             failCount++;
@@ -206,11 +200,8 @@ export default function LoadTestRunner({ concertId, user, onTestComplete, onBatc
       
       const result = await executeSingleTest(strat, targetStockCapacity, vuCount);
       sessionResults.push(result);
-      
-      // Update real-time single view as well
       onTestComplete(result);
       
-      // Small pause between runs for socket cleanups
       await new Promise(r => setTimeout(r, 600));
     }
 
@@ -317,7 +308,6 @@ export default function LoadTestRunner({ concertId, user, onTestComplete, onBatc
 
           {/* Dual Action Buttons */}
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            {/* Single Run Button */}
             <button
               onClick={handleRunSingle}
               disabled={isRunning}
@@ -329,7 +319,6 @@ export default function LoadTestRunner({ concertId, user, onTestComplete, onBatc
               <span>Seçili Modu Test Et</span>
             </button>
 
-            {/* Batch Session Run Button */}
             <button
               onClick={handleRunFullSession}
               disabled={isRunning}

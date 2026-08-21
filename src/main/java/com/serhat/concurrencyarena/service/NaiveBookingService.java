@@ -38,15 +38,15 @@ public class NaiveBookingService {
                 request.concertId(), request.userId(), request.seatCount());
 
         Concert concert = concertRepository.findById(request.concertId())
-                .orElseThrow(() -> new IllegalArgumentException("Concert not found: " + request.concertId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Concert not found: " + request.concertId()));
 
         User user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + request.userId()));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.userId()));
 
         // Concurrency-unsafe kontrol: Kilit olmadığı için eşzamanlı istekler aynı availableSeats değerini görür
         if (concert.getAvailableSeats() < request.seatCount()) {
             log.warn("Insufficient seats! Available: {}, Requested: {}", concert.getAvailableSeats(), request.seatCount());
-            throw new IllegalStateException("Insufficient seat availability!");
+            throw new InsufficientCapacityException("Insufficient seat availability!");
         }
 
         // Yarış durumunu (Race Condition) netleştirmek için yapay simülasyon gecikmesi

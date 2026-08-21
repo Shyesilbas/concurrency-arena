@@ -5,6 +5,7 @@ import ConcertCard from './components/ConcertCard';
 import LoadTestRunner from './components/LoadTestRunner';
 import MetricsPanel from './components/MetricsPanel';
 import SessionComparisonTable from './components/SessionComparisonTable';
+import { api } from './api/client';
 
 export default function App() {
   const [user, setUser] = useState({
@@ -18,41 +19,28 @@ export default function App() {
   const [lastTestResult, setLastTestResult] = useState(null);
   const [sessionResults, setSessionResults] = useState(null);
 
+  // Fetch real-time concert details from backend
   const fetchConcert = async () => {
     setLoadingConcert(true);
     try {
-      const res = await fetch('http://localhost:8080/api/v1/concerts/1');
-      const json = await res.json();
-      if (json.success && json.data) {
-        setConcert(json.data);
+      const res = await api.getConcert(1);
+      if (res.ok && res.data) {
+        setConcert(res.data);
       }
     } catch (err) {
       console.warn('Backend connection fallback:', err);
-      setConcert({
-        id: 1,
-        name: 'Harbiye Açıkhava Konseri',
-        artist: 'Tarkan',
-        totalCapacity: 100,
-        availableSeats: 100,
-        redisStock: 100,
-        totalOrders: 0,
-        totalTickets: 0,
-        version: 0
-      });
     } finally {
       setLoadingConcert(false);
     }
   };
 
+  // Reset concert inventory in DB and Redis
   const handleResetConcert = async (capacity = 100) => {
     setLoadingConcert(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/v1/concerts/1/reset?capacity=${capacity}`, {
-        method: 'POST'
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setConcert(json.data);
+      const res = await api.resetConcert(1, capacity);
+      if (res.ok && res.data) {
+        setConcert(res.data);
       }
     } catch (err) {
       console.error('Reset error:', err);
@@ -97,7 +85,7 @@ export default function App() {
           onBatchSessionComplete={(results) => {
             setSessionResults(results);
             if (results && results.length > 0) {
-              setLastTestResult(results[0]); // Default focus on first result
+              setLastTestResult(results[0]);
             }
           }}
           onRefreshConcert={fetchConcert}

@@ -1,30 +1,37 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { api } from '../api/client';
 
-export default function UserLoginModal({ user, onLogin, isOpen, onClose }) {
+export default function UserLoginModal({ isOpen, onClose, onLogin, user }) {
   const [email, setEmail] = useState(user ? user.email : 'shyesilbas@gmail.com');
   const [username, setUsername] = useState(user ? user.username : 'serhat_yesilbas');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!email) return;
+
     setLoading(true);
+    setErrorMsg('');
+
     try {
-      const res = await fetch('http://localhost:8080/api/v1/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, username })
-      });
-      const json = await res.json();
-      if (json.success) {
-        onLogin(json.data);
+      const res = await api.loginUser(email, username);
+      if (res.ok && res.data) {
+        onLogin(res.data);
         onClose();
+      } else {
+        setErrorMsg(res.message || 'Giriş yapılamadı.');
       }
     } catch (err) {
-      console.error('Login error:', err);
-      onLogin({ id: 1, email, username });
+      console.warn('Backend login fallback to local user session:', err);
+      onLogin({
+        id: user ? user.id : 1,
+        email: email,
+        username: username || email.split('@')[0]
+      });
       onClose();
     } finally {
       setLoading(false);
@@ -35,20 +42,22 @@ export default function UserLoginModal({ user, onLogin, isOpen, onClose }) {
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: 'rgba(0, 0, 0, 0.4)',
+      background: 'rgba(15, 23, 42, 0.4)',
+      backdropFilter: 'blur(4px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 1000,
-      padding: '20px'
+      padding: '16px'
     }}>
-      <div className="panel" style={{
-        maxWidth: '400px',
+      <div className="card-soft" style={{
         width: '100%',
-        padding: '24px',
+        maxWidth: '400px',
+        padding: '28px',
         position: 'relative'
       }}>
-        <button 
+        {/* Close Button */}
+        <button
           onClick={onClose}
           style={{
             position: 'absolute',
@@ -56,23 +65,38 @@ export default function UserLoginModal({ user, onLogin, isOpen, onClose }) {
             right: '16px',
             background: 'none',
             border: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            color: 'var(--text-muted)'
           }}
         >
           <X size={18} />
         </button>
 
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '4px', color: 'var(--color-black)' }}>
-          Kullanıcı Girişi
-        </h3>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          E-posta adresinizle hemen bağlanın.
-        </p>
+        <div style={{ marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--brand-black)' }}>
+            Kullanıcı Bilgileri
+          </h3>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Yük testlerinde istek sahibi olarak kullanılacak e-posta adresi.
+          </p>
+        </div>
+
+        {errorMsg && (
+          <div style={{
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-sm)',
+            background: '#fff1f2',
+            color: '#e11d48',
+            fontSize: '0.8rem',
+            marginBottom: '16px'
+          }}>
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
               E-Posta Adresi
             </label>
             <input
@@ -80,22 +104,20 @@ export default function UserLoginModal({ user, onLogin, isOpen, onClose }) {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ornek@domain.com"
+              placeholder="shyesilbas@gmail.com"
               style={{
                 width: '100%',
-                padding: '8px 12px',
+                padding: '10px 12px',
                 borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-primary)',
-                fontSize: '0.9rem',
-                outline: 'none'
+                border: '1px solid var(--border-light)',
+                background: 'var(--bg-surface)',
+                fontSize: '0.9rem'
               }}
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
               Kullanıcı Adı (Opsiyonel)
             </label>
             <input
@@ -105,13 +127,11 @@ export default function UserLoginModal({ user, onLogin, isOpen, onClose }) {
               placeholder="serhat_yesilbas"
               style={{
                 width: '100%',
-                padding: '8px 12px',
+                padding: '10px 12px',
                 borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-primary)',
-                fontSize: '0.9rem',
-                outline: 'none'
+                border: '1px solid var(--border-light)',
+                background: 'var(--bg-surface)',
+                fontSize: '0.9rem'
               }}
             />
           </div>
@@ -119,10 +139,10 @@ export default function UserLoginModal({ user, onLogin, isOpen, onClose }) {
           <button
             type="submit"
             disabled={loading}
-            className="btn btn-primary"
-            style={{ width: '100%', marginTop: '6px' }}
+            className="btn-modern btn-black"
+            style={{ width: '100%', padding: '10px', marginTop: '6px' }}
           >
-            {loading ? 'Giriş Yapılıyor...' : 'Giriş Yap'}
+            {loading ? 'Kaydediliyor...' : 'Kaydet ve Devam Et'}
           </button>
         </form>
       </div>
