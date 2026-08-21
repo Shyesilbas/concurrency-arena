@@ -149,7 +149,7 @@ k6 run k6/kafka_booking_test.js
 ---
 
 ## Ornek Test Raporu (PDF)
-
+Bu testte, 20 farklı kullanıcı toplam 10 bilet için yarıştı
 Sistem tarafindan uretilen 5 stratejinin karsilastirmasini ve kullanici bazli ayrintili log dokumunu iceren ornek oturum raporuna asagidaki baglantidan ulasabilirsiniz:
 
 - [Concurrency Benchmark Oturum Raporu (PDF)](docs/reports/concurrency-benchmark-session-report.pdf)
