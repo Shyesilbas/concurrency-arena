@@ -147,7 +147,3 @@ k6 run k6/kafka_booking_test.js
 | **05. Kafka Event-Driven** | 139.85 req/s | 572.86 ms | 0 Kayip (100 Bilet Satildi) | Tam Tutarlı |
 
 ---
-
-## Lisans
-
-Bu proje MIT lisansi ile lisanslanmistir.
