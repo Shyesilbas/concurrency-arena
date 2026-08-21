@@ -42,27 +42,40 @@ Bu dokuman, bilet rezervasyon sistemindeki yaris durumlarini (race condition) si
 - `k6/optimistic_booking_test.js` spike yuk testi kosturuldu (100 VU burst).
 - **Rapor:** `docs/benchmark/optimistic-reservation-test.md` olusturuldu (High Contention altinda retry maliyetinin gecikmeyi P95 2.51s'ye cikardigi ve Throughput'un 34.74 RPS'e geriledigi belgelendi).
 
----
+### 1.8. Redis Lua Scripting Servisi & Benchmark Raporu
+- Redis uzerinde atomik stok kontrolu ve dusumu yapan Lua scripti tabanli `RedisLuaBookingService` ve endpoint'i (`POST /api/v1/bookings/redis-lua`) yazildi.
+- `k6/redis_booking_test.js` spike yuk testi kosturuldu (100 VU burst).
+- **Rapor:** `docs/benchmark/redis-lua-reservation-test.md` olusturuldu (Throughput'un 42.34 RPS'e ciktigi, P95 gecikmesinin 2.17s'ye geriledigi ve sifir kilit beklemesi ile tam tutarlilik saglandigi belgelendi).
 
-## 2. Benchmark Karşılaştırma Özeti (İlk 3 Strateji)
-
-| Metrik / Parametre | 01 - Naive (Korumasiz) | 02 - Pessimistic Lock | 03 - Optimistic Lock (+Retry) |
-| :--- | :--- | :--- | :--- |
-| Kalan Koltuk (`available_seats`) | 89 (Tutarsiz) | 0 (Kusursuz) | 0 (Kusursuz) |
-| Lost Update / Stok Kaybi | 89 Adet Kayip | 0 Adet Kayip | 0 Adet Kayip |
-| Nihai Versiyon (`version`) | 0 | 0 | 100 |
-| Ortalama Yanit Suresi (Avg) | 1.18s | 1.63s | 1.68s |
-| Medyan Yanit Suresi (Med) | 1.15s | 1.65s | 1.71s |
-| P95 Latency | 1.53s | 2.39s | 2.51s |
-| Throughput (RPS) | 59.16 req/s | 38.70 req/s | 34.74 req/s |
+### 1.9. Kafka Event-Driven Asynchronous Booking Servisi & Benchmark Raporu
+- Redis Lua ile atomik stok dusumu sonrasi olaylari Apache Kafka (`booking-events`) kuyruguna firlatan ve `202 Accepted` donen `KafkaBookingService` ile arka planda calisan `KafkaBookingConsumer` gelistirildi.
+- `k6/kafka_booking_test.js` spike yuk testi kosturuldu (100 VU burst).
+- **Rapor:** `docs/benchmark/kafka-reservation-test.md` olusturuldu (Throughput rekoru: **139.85 RPS**, Ortalama yanit suresi: **559.54 ms**, P95: **572.86 ms** ve toplam test suresi: **0.7s** ile tum zamanlarin en yuksek performansi elde edildi).
 
 ---
 
-## 3. Yol Haritasi (Kalan Siradaki Asamalar)
+## 2. Benchmark Karşılaştırma Özeti (5 Stratejinin Büyük Tablosu)
 
-- [ ] **Asama 4 (Redis Distributed Lock / Lua Scripting):** 
-  - Redisson Distributed Lock ile kilitleme maliyetini incelemek.
-  - Redis Atomic Lua Scripting (`DECRBY` / `EVAL`) ile veritabanina gitmeden ultra yuksek hizli (sub-millisecond) stok dusumu gerceklestirmek.
-- [ ] **Asama 5 (Event-Driven / Kafka Asenkron Rezervasyon):**
-  - Istekleri hemen kabul edip (`202 Accepted`) Kafka kuyruguna gonderen ve asenkron isleyen yapiyi kurmak.
-- [ ] **Asama 6 (Genel Karsilastirma & Mimari Rapor):** Tum stratejileri iceren nihai performans tablosunu ve Trade-off analizini yayinlamak.
+| Metrik / Parametre | 01 - Naive | 02 - Pessimistic | 03 - Optimistic | 04 - Redis Lua | 05 - Kafka (Async Event-Driven) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **HTTP Durum Kodu** | 200 OK | 200 OK | 200 OK | 200 OK | **202 Accepted** |
+| **Kalan Koltuk (`available_seats`)** | 89 (Tutarsiz) | 0 (Kusursuz) | 0 (Kusursuz) | 0 (Kusursuz) | **0 (Kusursuz)** |
+| **Lost Update / Stok Kaybi** | 89 Adet Kayip | 0 Adet Kayip | 0 Adet Kayip | 0 Adet Kayip | **0 Adet Kayip** |
+| **Ortalama Yanit Suresi (Avg)** | 1.18s | 1.63s | 1.68s | 1.45s | **559.54 ms** |
+| **Medyan Yanit Suresi (Med)** | 1.15s | 1.65s | 1.71s | 1.46s | **561.64 ms** |
+| **P90 Latency** | 1.50s | 2.30s | 2.40s | 2.10s | **571.70 ms** |
+| **P95 Latency** | 1.53s | 2.39s | 2.51s | 2.17s | **572.86 ms** |
+| **Maksimum Latency** | 1.56s | 2.45s | 2.72s | 2.24s | **587.99 ms** |
+| **Throughput (RPS)** | 59.16 req/s | 38.70 req/s | 34.74 req/s | 42.34 req/s | **139.85 req/s** |
+| **Toplam Test Suresi** | 1.7s | 2.6s | 2.9s | 2.4s | **0.7s (700 ms)** |
+
+---
+
+## 3. Yol Haritasi (Tamamlanma Durumu)
+
+- [x] **Asama 1 (Naive Booking):** Korumasiz CRUD servisi ve Lost Update / Overselling tespiti.
+- [x] **Asama 2 (Pessimistic Locking):** `SELECT ... FOR UPDATE` ile satir duzeyinde kilitleme ve gecikme analizi.
+- [x] **Asama 3 (Optimistic Locking):** `@Version` + Spring Retry mekanizmasi ile lock-free cakisma yonetimi.
+- [x] **Asama 4 (Redis Lua Scripting):** Atomik In-Memory stok dusumu ile DB kilitlerini ve retry darbogazlarini ortadan kaldirma.
+- [x] **Asama 5 (Kafka Event-Driven Asynchronous Booking):** Non-blocking kuyruk mimarisi ile ultra yuksek throughput (139.85 RPS) ve dusuk gecikme (559 ms).
+- [ ] **Asama 6 (Genel Karsilastirma & Mimari Rapor):** Tum stratejileri kapsayan buyuk mimari trade-off dokumanini ve README ozetini yayinlamak.
